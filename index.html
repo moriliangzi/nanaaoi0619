@@ -15279,9 +15279,8 @@ document.getElementById('existing-categories-list').addEventListener('click', (e
   
 </script>  
 </body>  
-  <script>
+<script>
 window.addEventListener('load', function() {
-    // 讓系統自己去找到「聊天設定」的選單
     var modalBody = document.querySelector('#chat-settings-modal .modal-body');
     if (!modalBody) return;
 
@@ -15296,26 +15295,39 @@ window.addEventListener('load', function() {
     
     exportBtn.onclick = async function() {
         try {
-            var targetChatId = state.activeChatId; // 自動抓取目前聊天室 ID
-            if (!targetChatId) {
-                alert("找不到當前聊天室 ID");
+            // 自動抓取目前聊天室 ID，包含各種可能的名字
+            var targetId = null;
+            if (typeof currentContactId !== 'undefined') targetId = currentContactId;
+            else if (typeof state !== 'undefined' && state.activeContactId) targetId = state.activeContactId;
+            else if (typeof state !== 'undefined' && state.activeChatId) targetId = state.activeChatId;
+            
+            if (targetId === null) {
+                alert("抓不到聊天室 ID。");
                 return;
             }
-            var chatMessages = await db.messages.where('chatId').equals(targetChatId).toArray();
+
+            // 【關鍵修改】把全部訊息拿出來，在記憶體裡手動挑選，絕對不會引發資料庫報錯
+            var allMessages = await db.messages.toArray();
+            var chatMessages = allMessages.filter(function(msg) {
+                return msg.contactId === targetId || msg.chatId === targetId;
+            });
+
             if(chatMessages.length === 0) {
-                alert("這個聊天室目前沒有訊息喔！");
+                alert("這個聊天室目前沒有訊息可以匯出喔。");
                 return;
             }
+
             var dataStr = JSON.stringify(chatMessages, null, 2);
             var blob = new Blob([dataStr], { type: "application/json" });
             var url = URL.createObjectURL(blob);
             var a = document.createElement('a');
             a.href = url;
-            a.download = "chat_" + targetChatId + "_history.json";
+            a.download = "chat_" + targetId + "_history.json";
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+            
             alert("匯出成功！檔案已經下載囉。");
         } catch (err) {
             alert("匯出時發生錯誤：" + err.message);
@@ -15333,16 +15345,20 @@ window.addEventListener('load', function() {
     fileInput.accept = '.json';
     fileInput.style.display = 'none';
     
-    // 防止點擊衝突
     fileInput.onclick = function(e) { e.stopPropagation(); };
     
     fileInput.onchange = async function(event) {
         try {
-            var targetChatId = state.activeChatId;
-            if (!targetChatId) {
-                alert("找不到當前聊天室 ID");
+            var targetId = null;
+            if (typeof currentContactId !== 'undefined') targetId = currentContactId;
+            else if (typeof state !== 'undefined' && state.activeContactId) targetId = state.activeContactId;
+            else if (typeof state !== 'undefined' && state.activeChatId) targetId = state.activeChatId;
+
+            if (targetId === null) {
+                alert("抓不到聊天室 ID。");
                 return;
             }
+
             var file = event.target.files[0];
             if (!file) return;
 
@@ -15351,13 +15367,21 @@ window.addEventListener('load', function() {
                 try {
                     var importedData = JSON.parse(e.target.result);
                     if (Array.isArray(importedData)) {
+                        
                         var newMessages = importedData.map(function(msg) {
                             delete msg.id; 
-                            msg.chatId = targetChatId; 
+                            
+                            // 自動判斷該寫入 contactId 還是 chatId
+                            if (msg.hasOwnProperty('contactId') || typeof currentContactId !== 'undefined') {
+                                msg.contactId = targetId;
+                            } else {
+                                msg.chatId = targetId;
+                            }
                             return msg;
                         });
+                        
                         await db.messages.bulkAdd(newMessages);
-                        alert("匯入成功！請返回並重新點開這個聊天室看結果。");
+                        alert("匯入成功！請返回上一頁重新點開這個聊天室看結果。");
                         document.getElementById('chat-settings-modal').classList.remove('visible');
                     }
                 } catch (error) {
@@ -15374,10 +15398,10 @@ window.addEventListener('load', function() {
     importBtn.appendChild(fileInput);
     importBtn.onclick = function() { fileInput.click(); };
 
-    // 系統自動把這兩個按鈕，塞到聊天室設定選單的最下面
     modalBody.appendChild(exportBtn);
     modalBody.appendChild(importBtn);
 });
 </script>
+
 
 </html>  
