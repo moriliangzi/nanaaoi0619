@@ -15276,87 +15276,86 @@ document.getElementById('existing-categories-list').addEventListener('click', (e
         init();  
     });  
   
-// 匯出單一聊天室  
-async function exportSingleChat() {  
-    // 自動抓取通常使用的聊天室 ID 變數名稱  
-    const targetChatId = typeof currentContactId !== 'undefined' ? currentContactId : (typeof currentChatId !== 'undefined' ? currentChatId : null);  
-  
-    if (!targetChatId) {  
-        alert("找不到當前聊天室 ID");  
-        return;  
-    }  
-  
-    try {  
-        const chatMessages = await db.messages.where('chatId').equals(targetChatId).toArray();  
-          
-        if(chatMessages.length === 0) {  
-            alert("這個聊天室沒有訊息可以匯出");  
-            return;  
-        }  
-  
-        const dataStr = JSON.stringify(chatMessages, null, 2);  
-        const blob = new Blob([dataStr], { type: "application/json" });  
-        const url = URL.createObjectURL(blob);  
-        const a = document.createElement('a');  
-        a.href = url;  
-        a.download = `chat_${targetChatId}_history.json`;  
-        document.body.appendChild(a);  
-        a.click();  
-        document.body.removeChild(a);  
-        URL.revokeObjectURL(url);  
-          
-        alert("匯出成功");  
-    } catch (error) {  
-        console.error("匯出失敗", error);  
-        alert("匯出時發生錯誤");  
-    }  
-}  
-  
-// 匯入單一聊天室  
-async function importSingleChat(event) {  
-    const targetChatId = typeof currentContactId !== 'undefined' ? currentContactId : (typeof currentChatId !== 'undefined' ? currentChatId : null);  
-  
-    if (!targetChatId) {  
-        alert("找不到當前聊天室 ID，無法匯入");  
-        return;  
-    }  
-  
-    const file = event.target.files[0];  
-    if (!file) return;  
-  
-    const reader = new FileReader();  
-    reader.onload = async (e) => {  
-        try {  
-            const importedData = JSON.parse(e.target.result);  
-              
-            if (Array.isArray(importedData)) {  
-                const newMessages = importedData.map(msg => {  
-                    delete msg.id; // 刪除舊 ID  
-                    msg.chatId = targetChatId; // 綁定當前聊天室  
-                    return msg;  
-                });  
-  
-                await db.messages.bulkAdd(newMessages);  
-                alert("匯入成功");  
-                  
-                // 自動嘗試重新整理聊天室畫面  
-                if (typeof renderMessages === 'function') {  
-                    renderMessages();  
-                } else if (typeof loadChatMessages === 'function') {  
-                    loadChatMessages();  
-                }  
-            }  
-        } catch (error) {  
-            console.error("匯入失敗", error);  
-            alert("匯入失敗，請確認檔案格式是否正確");  
-        }  
-    };  
-    reader.readAsText(file);  
-    event.target.value = '';   
-}  
-  
-document.getElementById('export-single-chat-btn').addEventListener('click', exportSingleChat);  
-document.getElementById('import-single-chat-file').addEventListener('change', importSingleChat);  
+// 匯出單一聊天室
+async function exportSingleChat() {
+    // 這裡換成妳系統專用的聊天室 ID 變數： state.activeChatId
+    const targetChatId = state.activeChatId;
+
+    if (!targetChatId) {
+        alert("找不到當前聊天室 ID");
+        return;
+    }
+
+    try {
+        const chatMessages = await db.messages.where('chatId').equals(targetChatId).toArray();
+        
+        if(chatMessages.length === 0) {
+            alert("這個聊天室沒有訊息可以匯出喔");
+            return;
+        }
+
+        const dataStr = JSON.stringify(chatMessages, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `chat_${targetChatId}_history.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        alert("匯出成功！");
+    } catch (error) {
+        console.error("匯出失敗", error);
+        alert("匯出時發生錯誤");
+    }
+}
+
+// 匯入單一聊天室
+async function importSingleChat(event) {
+    // 一樣換成妳系統專用的聊天室 ID 變數
+    const targetChatId = state.activeChatId;
+
+    if (!targetChatId) {
+        alert("找不到當前聊天室 ID，無法匯入");
+        return;
+    }
+
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const importedData = JSON.parse(e.target.result);
+            
+            if (Array.isArray(importedData)) {
+                const newMessages = importedData.map(msg => {
+                    delete msg.id; // 刪除舊 ID
+                    msg.chatId = targetChatId; // 綁定當前聊天室
+                    return msg;
+                });
+
+                await db.messages.bulkAdd(newMessages);
+                alert("匯入成功！");
+                
+                // 匯入後自動重新整理目前的聊天室畫面
+                if (typeof renderChatInterface === 'function') {
+                    renderChatInterface(targetChatId);
+                } else if (typeof loadChatMessages === 'function') {
+                    loadChatMessages();
+                }
+            }
+        } catch (error) {
+            console.error("匯入失敗", error);
+            alert("匯入失敗，請確認檔案格式是否正確");
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = ''; 
+}
+
   
 </script>  
 </body>  
