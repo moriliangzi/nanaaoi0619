@@ -15279,129 +15279,90 @@ document.getElementById('existing-categories-list').addEventListener('click', (e
   
 </script>  
 </body>  
+<div style="position: fixed; bottom: 20px; left: 20px; z-index: 9999; background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); border: 1px solid #eee;">
+    <div style="font-size: 13px; margin-bottom: 8px; color: #666; text-align: center;">專屬 ID 傳輸通道</div>
+    <input type="text" id="nana-chat-id" placeholder="輸入聊天室ID (如 1)" style="width: 140px; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; text-align: center; display: block; background: #fff;">
+    <div style="display: flex; gap: 8px;">
+        <div onclick="nanaExport()" style="flex: 1; padding: 8px 0; background: #f5f5f5; border-radius: 8px; text-align: center; cursor: pointer; color: #333; font-size: 14px;">匯出</div>
+        <div onclick="document.getElementById('nana-import-file').click()" style="flex: 1; padding: 8px 0; background: #f5f5f5; border-radius: 8px; text-align: center; cursor: pointer; color: #333; font-size: 14px;">匯入</div>
+        <input type="file" id="nana-import-file" accept=".json" style="display: none;" onchange="nanaImport(event)">
+    </div>
+</div>
+
 <script>
-window.addEventListener('load', function() {
-    var modalBody = document.querySelector('#chat-settings-modal .modal-body');
-    if (!modalBody) return;
-
-    // 自動生成「匯出」按鈕
-    var exportBtn = document.createElement('div');
-    exportBtn.className = 'setting-item';
-    exportBtn.style.color = '#007bff'; 
-    exportBtn.style.borderTop = '1px solid #eee';
-    exportBtn.style.marginTop = '10px';
-    exportBtn.style.paddingTop = '10px';
-    exportBtn.innerText = '匯出此聊天記錄';
-    
-    exportBtn.onclick = async function() {
-        try {
-            // 自動抓取目前聊天室 ID，包含各種可能的名字
-            var targetId = null;
-            if (typeof currentContactId !== 'undefined') targetId = currentContactId;
-            else if (typeof state !== 'undefined' && state.activeContactId) targetId = state.activeContactId;
-            else if (typeof state !== 'undefined' && state.activeChatId) targetId = state.activeChatId;
-            
-            if (targetId === null) {
-                alert("抓不到聊天室 ID。");
-                return;
-            }
-
-            // 【關鍵修改】把全部訊息拿出來，在記憶體裡手動挑選，絕對不會引發資料庫報錯
-            var allMessages = await db.messages.toArray();
-            var chatMessages = allMessages.filter(function(msg) {
-                return msg.contactId === targetId || msg.chatId === targetId;
-            });
-
-            if(chatMessages.length === 0) {
-                alert("這個聊天室目前沒有訊息可以匯出喔。");
-                return;
-            }
-
-            var dataStr = JSON.stringify(chatMessages, null, 2);
-            var blob = new Blob([dataStr], { type: "application/json" });
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = "chat_" + targetId + "_history.json";
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            alert("匯出成功！檔案已經下載囉。");
-        } catch (err) {
-            alert("匯出時發生錯誤：" + err.message);
+async function nanaExport() {
+    try {
+        const rawId = document.getElementById('nana-chat-id').value.trim();
+        if (!rawId) {
+            alert("要先輸入數字 ID 喔");
+            return;
         }
-    };
+        const targetId = isNaN(rawId) ? rawId : Number(rawId);
 
-    // 自動生成「匯入」按鈕
-    var importBtn = document.createElement('div');
-    importBtn.className = 'setting-item';
-    importBtn.style.color = '#007bff';
-    importBtn.innerText = '匯入聊天記錄';
-    
-    var fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = '.json';
-    fileInput.style.display = 'none';
-    
-    fileInput.onclick = function(e) { e.stopPropagation(); };
-    
-    fileInput.onchange = async function(event) {
-        try {
-            var targetId = null;
-            if (typeof currentContactId !== 'undefined') targetId = currentContactId;
-            else if (typeof state !== 'undefined' && state.activeContactId) targetId = state.activeContactId;
-            else if (typeof state !== 'undefined' && state.activeChatId) targetId = state.activeChatId;
+        // 避開所有搜尋限制，直接攤開過濾
+        const allMsgs = await db.messages.toArray();
+        const chatMsgs = allMsgs.filter(m => m.chatId === targetId || m.contactId === targetId || String(m.chatId) === String(rawId) || String(m.contactId) === String(rawId));
 
-            if (targetId === null) {
-                alert("抓不到聊天室 ID。");
-                return;
-            }
+        if (chatMsgs.length === 0) {
+            alert("這個 ID 裡面空空的，沒有抓到訊息");
+            return;
+        }
 
-            var file = event.target.files[0];
-            if (!file) return;
+        const dataStr = JSON.stringify(chatMsgs, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "chat_" + rawId + "_history.json";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        alert("匯出成功了");
+    } catch (e) {
+        alert("錯誤: " + e.message);
+    }
+}
 
-            var reader = new FileReader();
-            reader.onload = async function(e) {
-                try {
-                    var importedData = JSON.parse(e.target.result);
-                    if (Array.isArray(importedData)) {
-                        
-                        var newMessages = importedData.map(function(msg) {
-                            delete msg.id; 
-                            
-                            // 自動判斷該寫入 contactId 還是 chatId
-                            if (msg.hasOwnProperty('contactId') || typeof currentContactId !== 'undefined') {
-                                msg.contactId = targetId;
-                            } else {
-                                msg.chatId = targetId;
-                            }
-                            return msg;
-                        });
-                        
-                        await db.messages.bulkAdd(newMessages);
-                        alert("匯入成功！請返回上一頁重新點開這個聊天室看結果。");
-                        document.getElementById('chat-settings-modal').classList.remove('visible');
-                    }
-                } catch (error) {
-                    alert("匯入失敗：檔案格式可能不是正確的 JSON");
+async function nanaImport(event) {
+    try {
+        const rawId = document.getElementById('nana-chat-id').value.trim();
+        if (!rawId) {
+            alert("要先輸入 ID 才能匯入喔");
+            event.target.value = '';
+            return;
+        }
+        const targetId = isNaN(rawId) ? rawId : Number(rawId);
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (Array.isArray(data)) {
+                    const newMsgs = data.map(m => {
+                        delete m.id;
+                        if (m.hasOwnProperty('contactId')) m.contactId = targetId;
+                        else m.chatId = targetId;
+                        return m;
+                    });
+                    await db.messages.bulkAdd(newMsgs);
+                    alert("匯入成功，重新點開聊天室就可以看到了");
                 }
-            };
-            reader.readAsText(file);
-            event.target.value = ''; 
-        } catch (err) {
-            alert("匯入時發生錯誤：" + err.message);
-        }
-    };
-
-    importBtn.appendChild(fileInput);
-    importBtn.onclick = function() { fileInput.click(); };
-
-    modalBody.appendChild(exportBtn);
-    modalBody.appendChild(importBtn);
-});
+            } catch (err) {
+                alert("檔案格式怪怪的，匯入失敗");
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+    } catch (e) {
+        alert("錯誤: " + e.message);
+    }
+}
 </script>
+
 
 
 </html>  
