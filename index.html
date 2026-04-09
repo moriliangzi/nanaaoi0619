@@ -5763,7 +5763,29 @@ const DEFAULT_APP_ICONS = {
     'font': 'https://i.postimg.cc/pXxk1JXk/IMG-6442.jpg'  
 };  
 // ▲▲▲ 添加结束 ▲▲▲  
-  
+          // ===================================================================
+        // 1. 所有变量和常量定义
+        // ===================================================================
+        const db = new Dexie('GeminiChatDB');
+        // --- 已修正 ---
+        let state = { chats: {}, activeChatId: null, globalSettings: {}, apiConfig: {}, userStickers: [], worldBooks: [], personaPresets: [], qzoneSettings: {}, activeAlbumId: null };
+        // --- 修正结束 ---
+        let musicState = { 
+            isActive: false, 
+            activeChatId: null, 
+            isPlaying: false, 
+            playlist: [], 
+            currentIndex: -1, 
+            playMode: 'order', 
+            totalElapsedTime: 0, 
+            timerId: null,
+            // ... 這裡可能還有其他屬性 ...
+        };
+
+        // ▼▼▼ 在這裡加上這兩行，把權限交接給通道 ▼▼▼
+        window.db = db;
+        window.state = state;
+
         const STICKER_REGEX = /^(https:\/\/i\.postimg\.cc\/.+|https:\/\/files\.catbox\.moe\/.+|data:image)/;  
         const MESSAGE_RENDER_WINDOW = 50;  
         let currentRenderedCount = 0;  
