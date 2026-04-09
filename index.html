@@ -4982,46 +4982,32 @@ input:checked + .slider:before {
             </div>  
 <hr style="margin: 25px 0; border: none; border-top: 1px solid #eee;">  
 <button class="form-button form-button-secondary" id="block-chat-btn" style="background-color: #ff3b30; color: white; border-color: #ff3b30;">拉黑对方</button>  
-<button class="form-button form-button-secondary" id="clear-chat-btn">清空聊天记录</button></div><div class="action-btn" style="padding: 15px; border-bottom: 1px solid #eee; text-align: center; color: #1f1f1f; cursor: pointer;" onclick="doSingleChatExport()">匯出此聊天記錄</div>
-<div class="action-btn" style="padding: 15px; border-bottom: 1px solid #eee; text-align: center; color: #1f1f1f; cursor: pointer;" onclick="document.getElementById('import-single-chat-file').click()">匯入聊天記錄</div>
-<input type="file" id="import-single-chat-file" accept=".json" style="display: none;" onchange="doSingleChatImport(event)">
+<button class="form-button form-button-secondary" id="clear-chat-btn">清空聊天记录</button></div><div style="padding: 15px; border-bottom: 1px solid #eee; text-align: center;">
+    <input type="text" id="manual-chat-id" placeholder="請先輸入聊天室 ID (如: 1 或 2)" style="width: 80%; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #ccc; text-align: center; font-size: 14px;">
+    
+    <div class="action-btn" style="padding: 12px; margin-bottom: 8px; background: #f9f9f9; border-radius: 8px; color: #1f1f1f; cursor: pointer; border: 1px solid #e0e0e0;" onclick="manualExport()">匯出此 ID 聊天記錄</div>
+    
+    <div class="action-btn" style="padding: 12px; background: #f9f9f9; border-radius: 8px; color: #1f1f1f; cursor: pointer; border: 1px solid #e0e0e0;" onclick="document.getElementById('manual-import-file').click()">匯入至此 ID</div>
+    
+    <input type="file" id="manual-import-file" accept=".json" style="display: none;" onchange="manualImport(event)">
+</div>
 
 <script>
-// 自動尋找聊天室 ID 的萬能探測器
-function getChatIdIntelligently() {
-    if (typeof state !== 'undefined' && state.activeChatId) return state.activeChatId;
-    if (typeof currentContactId !== 'undefined') return currentContactId;
-    if (typeof currentChatId !== 'undefined') return currentChatId;
-    if (typeof activeChatId !== 'undefined') return activeChatId;
-    
-    // 如果變數都找不到，直接去畫面上的清空按鈕偷它的 ID
-    const clearBtn = document.querySelector('[onclick*="clearChat"]');
-    if (clearBtn) {
-        const match = clearBtn.getAttribute('onclick').match(/clearChat\((.+?)\)/);
-        if (match && match[1]) {
-            try {
-                return eval(match[1]); 
-            } catch(e) {}
-        }
+async function manualExport() {
+    const inputId = document.getElementById('manual-chat-id').value.trim();
+    if (!inputId) {
+        alert("寶寶，要先在上面輸入聊天室的 ID 喔。");
+        return;
     }
-    return null;
-}
 
-async function doSingleChatExport() {
+    // 自動判斷 ID 是純數字還是字串
+    const targetChatId = isNaN(inputId) ? inputId : Number(inputId);
+
     try {
-        alert("探測器啟動，尋找聊天室中..."); 
-        
-        const targetChatId = getChatIdIntelligently();
-        
-        if (!targetChatId) {
-            alert("抱歉，探測器還是抓不到 ID，可能被系統藏得太深了。");
-            return;
-        }
-        
         const chatMessages = await db.messages.where('chatId').equals(targetChatId).toArray();
         
         if(chatMessages.length === 0) {
-            alert("這個聊天室目前沒有任何訊息喔。");
+            alert("這個 ID 找不到任何訊息，是不是打錯數字了？");
             return;
         }
 
@@ -5036,49 +5022,47 @@ async function doSingleChatExport() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        alert("匯出成功，檔案下載囉。");
+        alert("匯出成功！");
     } catch (err) {
         alert("匯出時發生錯誤：" + err.message);
     }
 }
 
-async function doSingleChatImport(event) {
-    try {
-        const targetChatId = getChatIdIntelligently();
-
-        if (!targetChatId) {
-            alert("抓不到聊天室 ID，無法匯入。");
-            return;
-        }
-
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const importedData = JSON.parse(e.target.result);
-                if (Array.isArray(importedData)) {
-                    const newMessages = importedData.map(msg => {
-                        delete msg.id; 
-                        msg.chatId = targetChatId; 
-                        return msg;
-                    });
-
-                    await db.messages.bulkAdd(newMessages);
-                    alert("匯入成功，請返回上一頁重新點開這個聊天室看結果。");
-                }
-            } catch (error) {
-                alert("匯入失敗：檔案格式可能不是正確的 JSON");
-            }
-        };
-        reader.readAsText(file);
-        event.target.value = ''; 
-    } catch (err) {
-        alert("匯入時發生錯誤：" + err.message);
+async function manualImport(event) {
+    const inputId = document.getElementById('manual-chat-id').value.trim();
+    if (!inputId) {
+        alert("寶寶，匯入前要先在上面輸入目標聊天室的 ID 喔。");
+        event.target.value = '';
+        return;
     }
+
+    const targetChatId = isNaN(inputId) ? inputId : Number(inputId);
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const importedData = JSON.parse(e.target.result);
+            if (Array.isArray(importedData)) {
+                const newMessages = importedData.map(msg => {
+                    delete msg.id; 
+                    msg.chatId = targetChatId; 
+                    return msg;
+                });
+
+                await db.messages.bulkAdd(newMessages);
+                alert("匯入成功！請重新點開該聊天室查看。");
+            }
+        } catch (error) {
+            alert("匯入失敗：檔案格式可能不是正確的 JSON。");
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = ''; 
 }
 </script>
+
   
 <input type="file" id="import-single-chat-file" accept=".json" style="display: none;">  
   
