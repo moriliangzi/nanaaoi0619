@@ -15302,8 +15302,13 @@ async function nanaExport() {
         }
         const targetId = isNaN(rawId) ? rawId : Number(rawId);
 
-        // 避開所有搜尋限制，直接攤開過濾
-        const allMsgs = await db.messages.toArray();
+        if (!window.db) {
+            alert("還是拿不到資料庫，請確認 window.db = db; 那兩行有貼對地方喔");
+            return;
+        }
+
+        // 明確使用 window.db
+        const allMsgs = await window.db.messages.toArray();
         const chatMsgs = allMsgs.filter(m => m.chatId === targetId || m.contactId === targetId || String(m.chatId) === String(rawId) || String(m.contactId) === String(rawId));
 
         if (chatMsgs.length === 0) {
@@ -15340,6 +15345,12 @@ async function nanaImport(event) {
         const file = event.target.files[0];
         if (!file) return;
 
+        if (!window.db) {
+            alert("拿不到資料庫，無法匯入喔");
+            event.target.value = '';
+            return;
+        }
+
         const reader = new FileReader();
         reader.onload = async (e) => {
             try {
@@ -15351,7 +15362,7 @@ async function nanaImport(event) {
                         else m.chatId = targetId;
                         return m;
                     });
-                    await db.messages.bulkAdd(newMsgs);
+                    await window.db.messages.bulkAdd(newMsgs);
                     alert("匯入成功，重新點開聊天室就可以看到了");
                 }
             } catch (err) {
@@ -15365,6 +15376,7 @@ async function nanaImport(event) {
     }
 }
 </script>
+
 
 
 
