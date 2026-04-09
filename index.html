@@ -15276,9 +15276,7 @@ document.getElementById('existing-categories-list').addEventListener('click', (e
         init();  
     });  
   
-// 匯出單一聊天室
-async function exportSingleChat() {
-    // 這裡換成妳系統專用的聊天室 ID 變數： state.activeChatId
+window.exportSingleChat = async function() {
     const targetChatId = state.activeChatId;
 
     if (!targetChatId) {
@@ -15310,11 +15308,9 @@ async function exportSingleChat() {
         console.error("匯出失敗", error);
         alert("匯出時發生錯誤");
     }
-}
+};
 
-// 匯入單一聊天室
-async function importSingleChat(event) {
-    // 一樣換成妳系統專用的聊天室 ID 變數
+window.importSingleChat = async function(event) {
     const targetChatId = state.activeChatId;
 
     if (!targetChatId) {
@@ -15332,19 +15328,16 @@ async function importSingleChat(event) {
             
             if (Array.isArray(importedData)) {
                 const newMessages = importedData.map(msg => {
-                    delete msg.id; // 刪除舊 ID
-                    msg.chatId = targetChatId; // 綁定當前聊天室
+                    delete msg.id; 
+                    msg.chatId = targetChatId; 
                     return msg;
                 });
 
                 await db.messages.bulkAdd(newMessages);
                 alert("匯入成功！");
                 
-                // 匯入後自動重新整理目前的聊天室畫面
                 if (typeof renderChatInterface === 'function') {
                     renderChatInterface(targetChatId);
-                } else if (typeof loadChatMessages === 'function') {
-                    loadChatMessages();
                 }
             }
         } catch (error) {
@@ -15354,7 +15347,8 @@ async function importSingleChat(event) {
     };
     reader.readAsText(file);
     event.target.value = ''; 
-}
+};
+
 
   
 </script>  
