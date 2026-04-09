@@ -5708,6 +5708,8 @@ if(Array.isArray(res) && res.length > 1) {
         // --- 已修正 ---  
         let state = { chats: {}, activeChatId: null, globalSettings: {}, apiConfig: {}, userStickers: [], worldBooks: [], personaPresets: [], qzoneSettings: {}, activeAlbumId: null };  
         // --- 修正结束 ---  
+		window.db = db;
+window.state = state;
 let musicState = {   
     isActive: false,   
     activeChatId: null,   
