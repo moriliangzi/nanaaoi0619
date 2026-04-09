@@ -5708,8 +5708,6 @@ if(Array.isArray(res) && res.length > 1) {
         // --- 已修正 ---  
         let state = { chats: {}, activeChatId: null, globalSettings: {}, apiConfig: {}, userStickers: [], worldBooks: [], personaPresets: [], qzoneSettings: {}, activeAlbumId: null };  
         // --- 修正结束 ---  
-		window.db = db;
-window.state = state;
 let musicState = {   
     isActive: false,   
     activeChatId: null,   
@@ -15300,23 +15298,20 @@ async function nanaExport() {
             alert("要先輸入數字 ID 喔");
             return;
         }
-        const targetId = isNaN(rawId) ? rawId : Number(rawId);
-
+        
         if (!window.db) {
-            alert("還是拿不到資料庫，請確認 window.db = db; 那兩行有貼對地方喔");
+            alert("拿不到資料庫，請確認 window.db = db; 有加上去");
             return;
         }
 
-        // 明確使用 window.db
-        const allMsgs = await window.db.messages.toArray();
-        const chatMsgs = allMsgs.filter(m => m.chatId === targetId || m.contactId === targetId || String(m.chatId) === String(rawId) || String(m.contactId) === String(rawId));
-
-        if (chatMsgs.length === 0) {
-            alert("這個 ID 裡面空空的，沒有抓到訊息");
+        let chat = await window.db.chats.get(rawId) || await window.db.chats.get(Number(rawId));
+        
+        if (!chat || !chat.messages || chat.messages.length === 0) {
+            alert("這個 ID 裡面空空的，或者找不到這個聊天室喔");
             return;
         }
 
-        const dataStr = JSON.stringify(chatMsgs, null, 2);
+        const dataStr = JSON.stringify(chat.messages, null, 2);
         const blob = new Blob([dataStr], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -15341,7 +15336,7 @@ async function nanaImport(event) {
             event.target.value = '';
             return;
         }
-        const targetId = isNaN(rawId) ? rawId : Number(rawId);
+        
         const file = event.target.files[0];
         if (!file) return;
 
@@ -15354,15 +15349,17 @@ async function nanaImport(event) {
         const reader = new FileReader();
         reader.onload = async (e) => {
             try {
-                const data = JSON.parse(e.target.result);
-                if (Array.isArray(data)) {
-                    const newMsgs = data.map(m => {
-                        delete m.id;
-                        if (m.hasOwnProperty('contactId')) m.contactId = targetId;
-                        else m.chatId = targetId;
-                        return m;
-                    });
-                    await window.db.messages.bulkAdd(newMsgs);
+                const importedData = JSON.parse(e.target.result);
+                if (Array.isArray(importedData)) {
+                    let chat = await window.db.chats.get(rawId) || await window.db.chats.get(Number(rawId));
+                    if (!chat) {
+                        alert("找不到這個聊天室，無法匯入");
+                        return;
+                    }
+                    
+                    chat.messages = importedData;
+                    await window.db.chats.put(chat);
+                    
                     alert("匯入成功，重新點開聊天室就可以看到了");
                 }
             } catch (err) {
@@ -15376,7 +15373,6 @@ async function nanaImport(event) {
     }
 }
 </script>
-
 
 
 
